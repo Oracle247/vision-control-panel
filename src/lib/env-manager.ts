@@ -4,6 +4,7 @@ import path from 'path';
 
 import os from "node:os";
 import { getBackendEnvPath } from './config.service';
+import { RuntimePaths } from '../utils/runtime-files';
 
 export function getAppDataDir() {
   const dir = path.join(
@@ -42,9 +43,7 @@ JWT_SECRET=${STUB_VALUES.JWT_SECRET}
  * Dev: oracle_codes/vfc-backend/.env (three levels up from src/lib/).
  */
 export function getBackendDotEnvPath(): string | null {
-  const packagedBackendDir = process.resourcesPath
-    ? path.join(process.resourcesPath, 'backend')
-    : null;
+  const packagedBackendDir = RuntimePaths.backend();
   if (packagedBackendDir && fs.existsSync(packagedBackendDir)) {
     return path.join(packagedBackendDir, '.env');
   }
@@ -177,8 +176,7 @@ export function syncBackendEnv(): void {
   const source = path.join(getAppDataDir(), ".env");
 
   const destination = path.join(
-    process.resourcesPath,
-    "backend",
+    RuntimePaths.backend(),
     ".env"
   );
 

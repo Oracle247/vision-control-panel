@@ -2,6 +2,25 @@ import fs from "fs";
 import path from "path";
 import { app } from "electron";
 import { Config } from "./configuration-manager";
+import { RuntimePaths } from "../utils/runtime-files";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
+
+export async function runNode(
+  args: string[],
+  cwd: string
+) {
+  return execFileAsync(
+    RuntimePaths.node(),
+    args,
+    {
+      cwd,
+      env: process.env,
+    }
+  );
+}
 
 export function getConfigDirectory() {
   const dir = path.join(
@@ -14,13 +33,34 @@ export function getConfigDirectory() {
   return dir;
 }
 
+
+export function getBackendPath() {
+  const packaged = path.join(__dirname, "runtime", "backend");
+
+  if (fs.existsSync(packaged)) {
+    return packaged;
+  }
+
+  return path.resolve(__dirname, "..", "vfc-backend");
+}
+
+export function getNodePath() {
+  const packaged = path.join(__dirname, "runtime", "node");
+
+  if (fs.existsSync(packaged)) {
+    return packaged;
+  }
+
+  return path.resolve(__dirname, "..", "node-runtime");
+}
+
 export function getConfigEnvPath() {
   return path.join(getConfigDirectory(), ".env");
 }
 
 export function getBackendEnvPath() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "backend", ".env");
+    return RuntimePaths.backend() + "/.env";
   }
 
   return path.join(
@@ -112,10 +152,50 @@ export function writeFileAtomic(file: string, text: string) {
   fs.renameSync(tmp, file);
 }
 
+function verifyRuntime() {
+
+  const required = [
+
+    RuntimePaths.backend(),
+
+    RuntimePaths.node(),
+
+    RuntimePaths.ecosystem(),
+
+    RuntimePaths.manifest()
+
+  ];
+
+  for (const file of required) {
+
+    if (!fs.existsSync(file)) {
+
+      throw new Error(
+        `Runtime missing:\n${file}`
+      );
+
+    }
+
+  }
+
+}
+
 export async function prepareBackend() {
 
   ensureConfiguration();
 
+  verifyRuntime();
+
   syncBackendEnv();
+
+  const backend = RuntimePaths.backend();
+
+  await runNode([
+    "node_modules/prisma/build/index.js",
+    "migrate",
+    "deploy",
+    "--schema",
+    "prisma/schema.prisma"
+  ], backend);
 
 }

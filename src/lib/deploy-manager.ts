@@ -4,11 +4,9 @@ import path from 'path';
 import { WebContents } from 'electron';
 import { getLanIP } from './lan-detector';
 import * as pm2Manager from './pm2-manager';
+import { RuntimePaths } from '../utils/runtime-files';
 
-const isPackaged = fs.existsSync(path.join(process.resourcesPath || '', 'backend'));
-const BACKEND_DIR = isPackaged
-  ? path.join(process.resourcesPath!, 'backend')
-  : path.resolve(__dirname, '../../../vfc-backend');
+const BACKEND_DIR = RuntimePaths.backend();
 const FRONTEND_DIR = path.resolve(__dirname, '../../../vfc-frontend');
 const PWA_DIR = path.resolve(__dirname, '../../../vision-attendance-pwa');
 

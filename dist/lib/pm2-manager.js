@@ -14,14 +14,11 @@ exports.deletePm2 = deletePm2;
 const electron_1 = require("electron");
 const child_process_1 = require("child_process");
 const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
 const env_manager_1 = require("./env-manager");
 const node_runtime_1 = require("../utils/node-runtime");
 const config_service_1 = require("./config.service");
-const isPackaged = fs_1.default.existsSync(path_1.default.join(process.resourcesPath || '', 'backend'));
-const ECOSYSTEM_PATH = isPackaged
-    ? path_1.default.join(process.resourcesPath, 'ecosystem.config.js')
-    : path_1.default.join(__dirname, '..', '..', 'ecosystem.config.js');
+const runtime_files_1 = require("../utils/runtime-files");
+const ECOSYSTEM_PATH = runtime_files_1.RuntimePaths.ecosystem();
 // export function getPm2Bin(): string {
 //   if (!app.isPackaged) {
 //     return require.resolve("pm2/bin/pm2");
@@ -43,7 +40,7 @@ function getPm2Bin() {
     if (!electron_1.app.isPackaged) {
         return require.resolve("pm2/bin/pm2");
     }
-    return path_1.default.join(process.resourcesPath, "node", "node_modules", "pm2", "bin", "pm2");
+    return path_1.default.join(runtime_files_1.RuntimePaths.node(), "node_modules", "pm2", "bin", "pm2");
 }
 function runPm2(args, options = {}) {
     return new Promise((resolve, reject) => {
@@ -70,24 +67,39 @@ function runPm2(args, options = {}) {
         });
         child.on("error", reject);
         child.on("close", (code) => {
+            console.log("========== PM2 OUTPUT ==========");
+            console.log("STDOUT:");
+            console.log(stdout);
+            console.log("STDERR:");
+            console.log(stderr);
+            console.log("===============================");
             if (code === 0) {
                 resolve(stdout);
             }
             else {
-                reject(new Error(stderr || `PM2 exited with code ${code}`));
+                reject(new Error(`PM2 exited with code ${code}\n\nSTDOUT:\n${stdout}\n\nSTDERR:\n${stderr}`));
             }
         });
+        // child.on("close", (code) => {
+        //   if (code === 0) {
+        //     resolve(stdout);
+        //   } else {
+        //     reject(
+        //       new Error(stderr || `PM2 exited with code ${code}`)
+        //     );
+        //   }
+        // });
     });
 }
 async function start() {
-    (0, config_service_1.syncBackendEnv)();
+    (0, config_service_1.prepareBackend)();
     await runPm2(['start', ECOSYSTEM_PATH, '--update-env']);
 }
 async function stop() {
     await runPm2(['stop', 'vfc-backend']);
 }
 async function restart() {
-    (0, config_service_1.syncBackendEnv)();
+    (0, config_service_1.prepareBackend)();
     try {
         await runPm2(['restart', 'vfc-backend', '--update-env']);
     }

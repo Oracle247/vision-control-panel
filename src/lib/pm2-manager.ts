@@ -5,12 +5,10 @@ import fs from 'fs';
 import { PM2Status, RunPm2Options } from '../types';
 import { getBackendEnv } from './env-manager';
 import { getNodeExecutable } from '../utils/node-runtime';
-import { syncBackendEnv } from './config.service';
+import { prepareBackend } from './config.service';
+import { RuntimePaths } from '../utils/runtime-files';
 
-const isPackaged = fs.existsSync(path.join(process.resourcesPath || '', 'backend'));
-const ECOSYSTEM_PATH = isPackaged
-  ? path.join(process.resourcesPath!, 'ecosystem.config.js')
-  : path.join(__dirname, '..', '..', 'ecosystem.config.js');
+const ECOSYSTEM_PATH = RuntimePaths.ecosystem();
 
 
 // export function getPm2Bin(): string {
@@ -40,8 +38,7 @@ export function getPm2Bin() {
   }
 
   return path.join(
-    process.resourcesPath,
-    "node",
+    RuntimePaths.node(),
     "node_modules",
     "pm2",
     "bin",
@@ -86,19 +83,39 @@ function runPm2(
     child.on("error", reject);
 
     child.on("close", (code) => {
+      console.log("========== PM2 OUTPUT ==========");
+      console.log("STDOUT:");
+      console.log(stdout);
+      console.log("STDERR:");
+      console.log(stderr);
+      console.log("===============================");
+
       if (code === 0) {
         resolve(stdout);
       } else {
         reject(
-          new Error(stderr || `PM2 exited with code ${code}`)
+          new Error(
+            `PM2 exited with code ${code}\n\nSTDOUT:\n${stdout}\n\nSTDERR:\n${stderr}`
+          )
         );
       }
     });
+
+    // child.on("close", (code) => {
+    //   if (code === 0) {
+    //     resolve(stdout);
+    //   } else {
+    //     reject(
+    //       new Error(stderr || `PM2 exited with code ${code}`)
+    //     );
+    //   }
+    // });
   });
 }
 
 export async function start(): Promise<void> {
-  syncBackendEnv();
+  prepareBackend();
+
   await runPm2(['start', ECOSYSTEM_PATH, '--update-env']);
 }
 
@@ -107,7 +124,7 @@ export async function stop(): Promise<void> {
 }
 
 export async function restart(): Promise<void> {
-  syncBackendEnv();
+  prepareBackend();
   try {
     await runPm2(['restart', 'vfc-backend', '--update-env']);
   } catch {

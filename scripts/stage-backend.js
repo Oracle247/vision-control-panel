@@ -19,7 +19,8 @@ const { execSync } = require('child_process');
 
 const CONTROL_PANEL = path.resolve(__dirname, '..');
 const BACKEND = path.resolve(CONTROL_PANEL, '..', 'vfc-backend');
-const STAGE = path.join(BACKEND, '.stage');
+const RUNTIME = path.join(CONTROL_PANEL, "runtime");
+const STAGE = path.join(RUNTIME, "backend");
 
 function log(msg) {
   process.stdout.write(`[stage-backend] ${msg}\n`);
@@ -56,7 +57,14 @@ function main() {
   assertExists(path.join(BACKEND, '.env.template'), 'vfc-backend/.env.template');
 
   log(`staging into ${STAGE}`);
+
+  // Ensure runtime exists
+  fs.mkdirSync(RUNTIME, { recursive: true });
+
+  // Clean previous backend runtime
   rmrf(STAGE);
+
+  // Recreate backend folder
   fs.mkdirSync(STAGE, { recursive: true });
 
   // dist/ — skip *.map
@@ -108,8 +116,8 @@ function main() {
   // Production-only node_modules
   log('installing production dependencies (npm ci --omit=dev)');
   const installCmd = fs.existsSync(path.join(STAGE, 'package-lock.json'))
-    ? 'npm ci --omit=dev --ignore-scripts'
-    : 'npm install --omit=dev --ignore-scripts';
+    ? 'npm ci --omit=dev'
+    : 'npm install --omit=dev';
   execSync(installCmd, { cwd: STAGE, stdio: 'inherit' });
 
   // Re-run Prisma client generation against the staged schema so the
@@ -119,6 +127,69 @@ function main() {
     cwd: STAGE,
     stdio: 'inherit',
   });
+
+  const bcryptBinary = path.join(
+  STAGE,
+  "node_modules",
+  "bcrypt",
+  "lib",
+  "binding",
+  "napi-v3",
+  "bcrypt_lib.node"
+);
+
+if (!fs.existsSync(bcryptBinary)) {
+  throw new Error(
+    "bcrypt native binary was not installed correctly."
+  );
+}
+
+  //copy ecosystem.config.js
+  log("Copying ecosystem.config.js");
+
+  fs.copyFileSync(
+    path.join(CONTROL_PANEL, "ecosystem.config.js"),
+    path.join(RUNTIME, "ecosystem.config.js")
+  );
+
+  log("Generating runtime manifest");
+
+  const backendPkg = require(path.join(BACKEND, "package.json"));
+  const controlPanelPkg = require(path.join(CONTROL_PANEL, "package.json"));
+
+  const manifest = {
+    controlPanelVersion: controlPanelPkg.version,
+    backendVersion: backendPkg.version,
+
+    buildDate: new Date().toISOString(),
+
+    runtime: {
+      backend: "backend",
+      node: "node",
+      ecosystem: "ecosystem.config.js"
+    }
+  };
+
+  fs.writeFileSync(
+    path.join(RUNTIME, "manifest.json"),
+    JSON.stringify(manifest, null, 2),
+    "utf8"
+  );
+
+  const required = [
+    "dist/server.js",
+    "package.json",
+    "node_modules",
+    "prisma/schema.prisma"
+  ];
+
+  for (const item of required) {
+    const p = path.join(STAGE, item);
+
+    if (!fs.existsSync(p)) {
+      throw new Error(`Missing ${item}`);
+    }
+  }
 
   log('stage complete');
 }

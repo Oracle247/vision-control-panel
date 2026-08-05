@@ -43,10 +43,8 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const lan_detector_1 = require("./lan-detector");
 const pm2Manager = __importStar(require("./pm2-manager"));
-const isPackaged = fs_1.default.existsSync(path_1.default.join(process.resourcesPath || '', 'backend'));
-const BACKEND_DIR = isPackaged
-    ? path_1.default.join(process.resourcesPath, 'backend')
-    : path_1.default.resolve(__dirname, '../../../vfc-backend');
+const runtime_files_1 = require("../utils/runtime-files");
+const BACKEND_DIR = runtime_files_1.RuntimePaths.backend();
 const FRONTEND_DIR = path_1.default.resolve(__dirname, '../../../vfc-frontend');
 const PWA_DIR = path_1.default.resolve(__dirname, '../../../vision-attendance-pwa');
 let activeChildren = [];

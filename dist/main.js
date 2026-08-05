@@ -367,7 +367,7 @@ electron_1.ipcMain.handle('configuration:save', async (_event, config) => {
         }
         const content = envManager.stringifyDotEnv(obj);
         // Determine backend path if available
-        const packagedBackendDir = process.resourcesPath ? path_1.default.join(process.resourcesPath, 'backend') : null;
+        const packagedBackendDir = process.resourcesPath ? path_1.default.join(process.resourcesPath, "runtime", "backend") : null;
         if (packagedBackendDir && fs_1.default.existsSync(packagedBackendDir)) {
             const backendEnvPath = path_1.default.join(packagedBackendDir, '.env');
             fs_1.default.writeFileSync(backendEnvPath, content, 'utf-8');

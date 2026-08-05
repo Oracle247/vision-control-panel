@@ -3,18 +3,22 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 
-const runtimeAssets = path.join(root, "runtime-assets");
-const runtimeDir = path.join(root, "node-runtime");
+const runtimeTemplate = path.join(root, "runtime-assets");
+const runtimeRoot = path.join(root, "runtime");
+const runtimeNode = path.join(runtimeRoot, "node");
 
-console.log("Preparing runtime...");
+console.log("Preparing Node runtime...");
 
-// Remove previous runtime
-fs.removeSync(runtimeDir);
+// Ensure runtime folder exists
+fs.ensureDirSync(runtimeRoot);
 
-// Copy runtime
-fs.copySync(runtimeAssets, runtimeDir, {
-    overwrite: true,
-    errorOnExist: false,
+// Remove previous runtime/node
+fs.removeSync(runtimeNode);
+
+// Copy template into runtime/node
+fs.copySync(runtimeTemplate, runtimeNode, {
+  overwrite: true,
+  errorOnExist: false,
 });
 
-console.log("Runtime ready.");
+console.log("Node runtime ready.");

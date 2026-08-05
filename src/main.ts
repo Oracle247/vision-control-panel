@@ -334,7 +334,7 @@ ipcMain.handle('configuration:save', async (_event, config) => {
     const content = envManager.stringifyDotEnv(obj);
 
     // Determine backend path if available
-    const packagedBackendDir = process.resourcesPath ? path.join(process.resourcesPath, 'backend') : null;
+    const packagedBackendDir = process.resourcesPath ? path.join(process.resourcesPath, "runtime", "backend") : null;
     if (packagedBackendDir && fs.existsSync(packagedBackendDir)) {
       const backendEnvPath = path.join(packagedBackendDir, '.env');
       fs.writeFileSync(backendEnvPath, content, 'utf-8');

@@ -1,11 +1,9 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { RuntimePaths } from '../utils/runtime-files';
 
-const isPackaged = fs.existsSync(path.join(process.resourcesPath || '', 'backend'));
-const BACKEND_DIR = isPackaged
-  ? path.join(process.resourcesPath!, 'backend')
-  : path.resolve(__dirname, '../../../vfc-backend');
+const BACKEND_DIR = RuntimePaths.backend();
 
 interface ParsedDbUrl {
   user: string;
@@ -116,7 +114,7 @@ export function dumpDatabase(
         onLog(`Done. Wrote ${bytes.toLocaleString()} bytes.`);
         resolve({ bytes });
       } else {
-        try { fs.unlinkSync(destinationPath); } catch {}
+        try { fs.unlinkSync(destinationPath); } catch { }
         reject(new Error(`pg_dump exited with code ${code}`));
       }
     });

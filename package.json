@@ -27,39 +27,8 @@
     ],
     "extraResources": [
       {
-    "from": "node-runtime/node.exe",
-    "to": "node/node.exe"
-  },
-  {
-    "from": "node-runtime/package.json",
-    "to": "node/package.json"
-  },
-  {
-    "from": "node-runtime/package-lock.json",
-    "to": "node/package-lock.json"
-  },
-  {
-    "from": "node-runtime/node_modules",
-    "to": "node/node_modules",
-    "filter": [
-      "**/*"
-    ]
-  },
-      {
-        "from": "ecosystem.config.js",
-        "to": "ecosystem.config.js"
-      },
-      {
-        "from": "../vfc-backend/.stage",
-        "to": "backend"
-      },
-      {
-        "from": "../vfc-backend/node_modules",
-        "to": "backend/node_modules"
-      },
-      {
-        "from": "../vfc-backend/package.json",
-        "to": "backend/package.json"
+        "from": "runtime",
+        "to": "runtime"
       }
     ],
     "win": {

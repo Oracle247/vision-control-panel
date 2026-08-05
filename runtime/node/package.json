@@ -1,0 +1,8 @@
+{
+  "name": "vision-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "pm2": "^5.4.3"
+  }
+}

@@ -1,0 +1,442 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String    @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String?   @unique
+  phoneNumber String
+  gender      Gender
+  address     String
+  dateOfBirth DateTime?
+  password    String?
+
+  // Campus-specific details
+  matricNumber String? @unique // For students only
+  department   String?
+  level        String? // e.g. "100", "200", "300", "400", "Postgraduate"
+  faculty      String?
+
+  // Other identifiers
+  nationality      String?
+  stateOfOrigin    String?
+  emergencyContact String?
+
+  // Layered church journey
+  churchStatus   ChurchStatus    @default(VISITOR)
+  membershipType MembershipType?
+  workerType     WorkerType?
+
+  role UserRole @default(MEMBER)
+
+  accountStatus AccountStatus @default(ACTIVE)
+
+  attendances          Attendance[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  departments          Department[] @relation("UserDepartments")
+  headedDepartments    Department[] @relation("DepartmentHead")
+  assistantDepartments Department[] @relation("DepartmentAssistant")
+
+  createdInvoices  Invoice[]                      @relation("CreatedInvoices")
+  paidInvoices     Invoice[]                      @relation("PaidInvoices")
+  approvedInvoices Invoice[]                      @relation("ApprovedInvoices")
+  recordedPayments InvoicePayment[]               @relation("RecordedPayments")
+  recordedIncomes  SessionIncome[]                @relation("RecordedIncomes")
+  passwordInvites  InviteToken[]                  @relation("UserInvites")
+  createdInvites   InviteToken[]                  @relation("CreatedInvites")
+  deptLateUpdates  ServiceDayDepartmentLateTime[] @relation("DeptLateUpdates")
+  deptPositions    DepartmentPosition[]           @relation("UserDepartmentPositions")
+}
+
+model AttendanceSession {
+  id               String           @id @default(cuid())
+  serviceName      String
+  date             DateTime?
+  startedAt        DateTime         @default(now())
+  endedAt          DateTime?
+  serviceDayId     String?
+  serviceDay       ServiceDay?      @relation(fields: [serviceDayId], references: [id], onDelete: SetNull)
+  specialProgramId String?
+  specialProgram   SpecialProgram?  @relation(fields: [specialProgramId], references: [id], onDelete: SetNull)
+  services         SessionService[]
+  attendees        Attendance[]
+  createdAt        DateTime         @default(now())
+
+  @@index([serviceDayId])
+  @@index([specialProgramId])
+}
+
+model ServiceDay {
+  id            String                         @id @default(cuid())
+  name          String
+  weekday       Weekday
+  services      ServiceDayService[]
+  variations    ServiceDayVariation[]
+  sessions      AttendanceSession[]
+  deptLateTimes ServiceDayDepartmentLateTime[]
+  createdAt     DateTime                       @default(now())
+  updatedAt     DateTime                       @updatedAt
+}
+
+model ServiceDayVariation {
+  id           String                       @id @default(cuid())
+  serviceDayId String
+  serviceDay   ServiceDay                   @relation(fields: [serviceDayId], references: [id], onDelete: Cascade)
+  name         String
+  services     ServiceDayVariationService[]
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+
+  @@unique([serviceDayId, name])
+  @@index([serviceDayId])
+}
+
+model ServiceDayVariationService {
+  id             String              @id @default(cuid())
+  variationId    String
+  variation      ServiceDayVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  order          Int
+  serviceTime    String // "HH:mm"
+  preServiceTime String? // "HH:mm" or null
+  closesAt       String? // "HH:mm" or null
+
+  @@unique([variationId, order])
+  @@index([variationId])
+}
+
+model ServiceDayDepartmentLateTime {
+  id           String     @id @default(cuid())
+  serviceDayId String
+  serviceDay   ServiceDay @relation(fields: [serviceDayId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  lateTime     String // "HH:mm"
+  updatedById  String?
+  updatedBy    User?      @relation("DeptLateUpdates", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([serviceDayId, departmentId])
+  @@index([serviceDayId])
+  @@index([departmentId])
+}
+
+model ServiceDayService {
+  id             String     @id @default(cuid())
+  serviceDayId   String
+  serviceDay     ServiceDay @relation(fields: [serviceDayId], references: [id], onDelete: Cascade)
+  order          Int
+  serviceTime    String // "HH:mm"
+  preServiceTime String? // "HH:mm" or null
+  closesAt       String? // "HH:mm" or null
+
+  @@unique([serviceDayId, order])
+  @@index([serviceDayId])
+}
+
+model SpecialProgram {
+  id        String                  @id @default(cuid())
+  name      String
+  date      DateTime?
+  services  SpecialProgramService[]
+  sessions  AttendanceSession[]
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+}
+
+model SpecialProgramService {
+  id               String         @id @default(cuid())
+  specialProgramId String
+  specialProgram   SpecialProgram @relation(fields: [specialProgramId], references: [id], onDelete: Cascade)
+  order            Int
+  serviceTime      String // "HH:mm"
+  preServiceTime   String? // "HH:mm" or null
+  closesAt         String? // "HH:mm" or null
+
+  @@unique([specialProgramId, order])
+  @@index([specialProgramId])
+}
+
+enum Weekday {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+model SessionService {
+  id             String            @id @default(cuid())
+  sessionId      String
+  session        AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  order          Int
+  serviceTime    DateTime
+  preServiceTime DateTime?
+  closesAt       DateTime?
+  incomes        SessionIncome[]
+
+  @@unique([sessionId, order])
+  @@index([sessionId])
+}
+
+model SessionIncome {
+  id               String         @id @default(cuid())
+  sessionServiceId String
+  sessionService   SessionService @relation(fields: [sessionServiceId], references: [id], onDelete: Cascade)
+  category         IncomeCategory
+  method           PaymentMethod
+  amount           Decimal        @db.Decimal(12, 2)
+  recordedById     String?
+  recordedBy       User?          @relation("RecordedIncomes", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedAt       DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([sessionServiceId, category, method])
+  @@index([sessionServiceId])
+}
+
+enum IncomeCategory {
+  TITHE
+  OFFERING
+  SPECIAL_DONATION
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+model InviteToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation("UserInvites", fields: [userId], references: [id], onDelete: Cascade)
+  token       String    @unique
+  createdById String?
+  createdBy   User?     @relation("CreatedInvites", fields: [createdById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Attendance {
+  id           String            @id @default(cuid())
+  sessionId    String
+  userId       String
+  session      AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  markedAt     DateTime          @default(now())
+  serviceOrder Int               @default(1)
+
+  @@index([sessionId, serviceOrder])
+}
+
+model Department {
+  id             String                         @id @default(uuid())
+  name           String                         @unique
+  description    String?
+  headId         String?
+  head           User?                          @relation("DepartmentHead", fields: [headId], references: [id])
+  members        User[]                         @relation("UserDepartments")
+  assistantHeads User[]                         @relation("DepartmentAssistant")
+  lateTimes      ServiceDayDepartmentLateTime[]
+  positions      DepartmentPosition[]
+}
+
+// Title within a department: HOD, Assistant HOD, Secretary, Coordinator, ...
+// Decoupled from the existing head/assistantHeads relations so admins can add
+// finer roles without disturbing the legacy two-rung hierarchy.
+model Position {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  description String?
+  permissions PositionPermission[]
+  assignments DepartmentPosition[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+// A capability the system can check, addressed by `key`. Bound to Positions
+// via PositionPermission. Heads/assistants get implicit grants via code in
+// src/core/permissions.ts.
+model Permission {
+  id          String               @id @default(cuid())
+  key         String               @unique
+  label       String
+  description String?
+  positions   PositionPermission[]
+  createdAt   DateTime             @default(now())
+}
+
+model PositionPermission {
+  positionId   String
+  permissionId String
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([positionId, permissionId])
+  @@index([permissionId])
+}
+
+// Per-(user × department) Position assignment. A user can hold multiple
+// positions in the same department (e.g. Secretary + Coordinator) — the
+// resolver takes the union of their permissions.
+model DepartmentPosition {
+  id           String     @id @default(cuid())
+  userId       String
+  departmentId String
+  positionId   String
+  user         User       @relation("UserDepartmentPositions", fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
+
+  @@unique([userId, departmentId, positionId])
+  @@index([departmentId])
+  @@index([userId])
+}
+
+model Invoice {
+  id            String @id @default(uuid())
+  invoiceNumber String @unique
+
+  title       String
+  description String?
+  currency    String  @default("NGN")
+
+  status InvoiceStatus @default(CREATED)
+
+  totalAmount Float @default(0)
+
+  createdById    String
+  markedPaidById String?
+  approvedById   String?
+
+  receiptUrl String?
+
+  paidAt     DateTime?
+  approvedAt DateTime?
+
+  createdBy    User? @relation("CreatedInvoices", fields: [createdById], references: [id])
+  markedPaidBy User? @relation("PaidInvoices", fields: [markedPaidById], references: [id])
+  approvedBy   User? @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+
+  departments InvoiceDepartment[]
+  payments    InvoicePayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InvoiceDepartment {
+  id String @id @default(uuid())
+
+  invoiceId      String
+  departmentName String
+
+  bankName      String
+  accountName   String
+  accountNumber String
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  items InvoiceItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+model InvoiceItem {
+  id          String @id @default(uuid())
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float
+  totalPrice  Float
+
+  invoiceDepartmentId String
+  invoiceDepartment   InvoiceDepartment @relation(fields: [invoiceDepartmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ChurchStatus {
+  FIRST_TIMER
+  VISITOR
+  MEMBER
+}
+
+enum MembershipType {
+  NON_WORKER
+  WORKER
+}
+
+enum WorkerType {
+  REGULAR
+  EXECUTIVE
+}
+
+enum UserRole {
+  MEMBER
+  WORKER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model InvoicePayment {
+  id           String   @id @default(uuid())
+  invoiceId    String
+  amount       Float
+  receiptUrl   String?
+  note         String?
+  recordedById String
+  paidAt       DateTime @default(now())
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy User    @relation("RecordedPayments", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+enum InvoiceStatus {
+  CREATED
+  APPROVED
+  PARTIALLY_PAID
+  PAID
+}
+
+model ChurchSettings {
+  id          String   @id @default("singleton")
+  name        String
+  email       String   @default("")
+  phoneNumber String   @default("")
+  logoUrl     String?
+  address     String?
+  updatedAt   DateTime @updatedAt
+}
